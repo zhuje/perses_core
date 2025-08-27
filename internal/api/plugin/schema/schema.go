@@ -109,6 +109,7 @@ type Schema interface {
 	ValidateDashboardVariables([]dashboard.Variable) error
 	ValidateVariable(plugin common.Plugin, varName string) error
 	GetDatasourceSchema(pluginName string) (*build.Instance, error)
+	GetAllSchemas() (map[string]interface{}, error)
 }
 
 func New() Schema {
@@ -255,6 +256,60 @@ func (s *completeSchema) GetDatasourceSchema(pluginName string) (*build.Instance
 		return s.devSch.getDatasourceSchema(pluginName)
 	}
 	return s.sch.getDatasourceSchema(pluginName)
+}
+
+func (s *completeSchema) GetAllSchemas() (map[string]interface{}, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	
+	result := make(map[string]interface{})
+	
+	// Merge production and dev schemas
+	allSchemas := map[string]map[string]*build.Instance{
+		"datasources": make(map[string]*build.Instance),
+		"queries":     make(map[string]*build.Instance),
+		"variables":   make(map[string]*build.Instance),
+		"panels":      make(map[string]*build.Instance),
+	}
+	
+	// Copy production schemas
+	for name, instance := range s.sch.datasources {
+		allSchemas["datasources"][name] = instance
+	}
+	for name, instance := range s.sch.queries {
+		allSchemas["queries"][name] = instance
+	}
+	for name, instance := range s.sch.variables {
+		allSchemas["variables"][name] = instance
+	}
+	for name, instance := range s.sch.panels {
+		allSchemas["panels"][name] = instance
+	}
+	
+	// Override with dev schemas (they take precedence)
+	for name, instance := range s.devSch.datasources {
+		allSchemas["datasources"][name] = instance
+	}
+	for name, instance := range s.devSch.queries {
+		allSchemas["queries"][name] = instance
+	}
+	for name, instance := range s.devSch.variables {
+		allSchemas["variables"][name] = instance
+	}
+	for name, instance := range s.devSch.panels {
+		allSchemas["panels"][name] = instance
+	}
+	
+	// Convert to schema names only (CUE build instances are not easily serializable)
+	for schemaType, schemas := range allSchemas {
+		schemaNames := make([]string, 0, len(schemas))
+		for name := range schemas {
+			schemaNames = append(schemaNames, name)
+		}
+		result[schemaType] = schemaNames
+	}
+	
+	return result, nil
 }
 
 func (s *completeSchema) validateQuery(plugin common.Plugin, queryName string) error {

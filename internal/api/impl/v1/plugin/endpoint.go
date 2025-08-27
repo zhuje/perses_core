@@ -41,6 +41,7 @@ func NewEndpoint(svc plugin.Plugin, enableDev bool) route.Endpoint {
 func (e *endpoint) CollectRoutes(g *route.Group) {
 	group := g.Group("/plugins")
 	group.GET("", e.List, true)
+	group.GET("/schemas", e.ListSchemas, true)
 	if e.enableDev {
 		group.POST("", e.PushDevPlugin, true)
 		group.DELETE(fmt.Sprintf("/:%s", utils.ParamName), e.DeleteDevPlugin, true)
@@ -55,6 +56,15 @@ func (e *endpoint) List(ctx echo.Context) error {
 		return apiinterface.InternalError
 	}
 	return ctx.Blob(http.StatusOK, "application/json", d)
+}
+
+func (e *endpoint) ListSchemas(ctx echo.Context) error {
+	schemas, err := e.svc.Schema().GetAllSchemas()
+	if err != nil {
+		logrus.WithError(err).Error("unable to list schemas")
+		return apiinterface.InternalError
+	}
+	return ctx.JSON(http.StatusOK, schemas)
 }
 
 func (e *endpoint) PushDevPlugin(ctx echo.Context) error {
