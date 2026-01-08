@@ -332,7 +332,7 @@ function ListVariableEditorForm({ action, control }: KindVariableEditorFormProps
                     if (event.target.value === '') {
                       field.onChange(undefined);
                     } else {
-                      field.onChange(event);
+                      field.onChange(event.target.value);
                     }
                   }}
                 />
